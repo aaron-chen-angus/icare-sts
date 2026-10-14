@@ -243,30 +243,17 @@
         const back = '<button class="btn btn-secondary btn-small" id="bk">Exit</button>';
         const wireBack = () => { const b = $('#bk'); if (b) b.onclick = () => { stopAll(); entry(); }; };
         if (step === 'position') {
-            ov.textContent = msg || 'Place the camera 2–3 m away at hip height, SIDE-ON to the chair (perpendicular), chair against a wall.\nWhole body, head to feet, must be in view.';
+            ov.textContent = msg || 'Sit on the chair, SIDE-ON to the camera (2–3 m away, hip height).\nWhole body, head to feet, must be in view.\nWhen ready, press START — stand and sit as many times as you can in 30 s.';
             ctl.innerHTML = back +
                 '<button class="btn btn-secondary btn-small" id="cm">Flip cam</button>' +
                 '<button class="btn btn-secondary btn-small" id="lb">Labels</button>' +
                 '<button class="btn btn-secondary btn-small" id="al">All pts</button>' +
-                '<button class="btn btn-primary" id="nx" disabled>Calibrate standing</button>';
+                '<button class="btn btn-primary" id="nx" disabled>Start test</button>';
             wireBack();
             $('#cm').onclick = flipCamera;
             $('#lb').onclick = () => { engine.showLabels = !engine.showLabels; $('#lb').classList.toggle('active', engine.showLabels); };
             $('#al').onclick = () => { engine.showAll = !engine.showAll; $('#al').classList.toggle('active', engine.showAll); };
-            $('#nx').onclick = () => { S.cap = { buf: [] }; setStep('calStand'); };
-        } else if (step === 'calStand') {
-            ov.innerHTML = (msg ? esc(msg) + '\n' : '') + 'STANDING CALIBRATION\nStand tall, side-on, feet flat, hold completely still.<div class="progress"><div id="pb"></div></div>';
-            ctl.innerHTML = back; wireBack();
-        } else if (step === 'calSeat') {
-            ov.innerHTML = (msg ? esc(msg) + '\n' : '') + 'SEATED CALIBRATION\nSit back on the chair, feet flat, <b>arms crossed on chest</b>, upright. Hold still.<div class="progress"><div id="pb"></div></div>';
-            ctl.innerHTML = back; wireBack();
-        } else if (step === 'ready') {
-            const c = S.calib;
-            ov.innerHTML = '<b class="good">CALIBRATED</b>\nScale ' + (c.scale * 1000).toFixed(3) + ' mm/px · hip rise ' + c.hipRiseM.toFixed(2) + ' m · near side ' + c.side +
-                '\nParticipant stays seated, arms crossed.\nDo not move the camera or chair from now on.';
-            ctl.innerHTML = back + '<button class="btn btn-secondary btn-small" id="rc">Recalibrate</button><button class="btn btn-primary" id="st">Start 30-s test</button>';
-            wireBack(); $('#rc').onclick = () => { S.cap = { buf: [] }; engine.overlay.lines = []; setStep('calStand'); };
-            $('#st').onclick = () => { beep(1, 1); countdown(); };
+            $('#nx').onclick = () => { beep(1, 1); countdown(); };
         } else if (step === 'countdown') {
             ov.classList.add('big'); ctl.innerHTML = '<button class="btn btn-danger" id="ab">Abort</button>';
             $('#ab').onclick = () => { stopAll(); session(); };
@@ -299,56 +286,71 @@
         nx.disabled = !ready;
     }
 
-    function feedCapture(f, tMs) {
-        const cc = CONFIG.calibration, cap = S.cap, pb = $('#pb');
-        if (!f || !chainOK(f, S.side || sideOf(f))) { cap.buf = []; if (pb) pb.style.width = '0'; return; }
+    /**
+     * Option A — auto-calibration. Build the SAME calibration object the analysis engine expects,
+     * but derive the "standing" and "seated" frame windows automatically from the recorded motion
+     * instead of asking the participant to hold still:
+     *   - seated  = frames around the LOWEST hip position (largest image-y)
+     *   - standing = frames around the HIGHEST hip position (smallest image-y)
+     * Falls back to null if there was not enough vertical movement to tell sitting from standing.
+     */
+    function autoCalibrate(frames, W, H) {
+        if (!frames || frames.length < 10) return null;
+        const side = sideOf(frames[Math.floor(frames.length / 2)]);
+        const s = A.SIDE[side];
+        // usable frames: chain visible
+        const usable = frames.filter(f => chainOK(f, side));
+        if (usable.length < 10) return null;
+        const hipY = f => f.img[s.hip * 4 + 1];                 // normalised (0 top .. 1 bottom)
+        const ys = usable.map(hipY);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);   // minY = highest (standing), maxY = lowest (seated)
+        const rangeFrac = maxY - minY;
+        if (rangeFrac < 0.04) return null;                      // barely moved -> cannot separate sit/stand
+        // take the frames nearest each extreme (top/bottom 25% of the observed hip range)
+        const standThresh = minY + rangeFrac * 0.25;
+        const seatThresh = maxY - rangeFrac * 0.25;
+        const standFrames = usable.filter(f => hipY(f) <= standThresh);
+        const seatFrames = usable.filter(f => hipY(f) >= seatThresh);
+        if (standFrames.length < 3 || seatFrames.length < 3) return null;
+        try {
+            const calib = A.buildCalibration(standFrames, seatFrames, W, H, S.participant.heightCm, CONFIG);
+            return (calib && Number.isFinite(calib.scale) && calib.seat.hipY > calib.stand.hipY) ? calib : null;
+        } catch (e) { console.warn('autoCalibrate failed', e); return null; }
+    }
+
+    /** Lightweight running calibration during the test so the live counter & overlay lines work. */
+    function updateLiveCalib(f) {
+        if (!f) return;
         const side = S.side || sideOf(f), s = A.SIDE[side];
-        cap.buf.push({ tMs, f });
-        const span = (tMs - cap.buf[0].tMs) / 1000;
-        const idx = [s.sh, s.hip, s.kn, s.an];
-        let jit = 0;
-        for (const li of idx) {
-            const xs = cap.buf.map(b => px(b.f, li).x), ys = cap.buf.map(b => px(b.f, li).y);
-            const sdv = a => { const m = a.reduce((p, q) => p + q, 0) / a.length; return Math.sqrt(a.reduce((p, q) => p + (q - m) * (q - m), 0) / a.length); };
-            jit = Math.max(jit, sdv(xs), sdv(ys));
-        }
-        const l0 = cap.buf[cap.buf.length - 1].f, trunk = Math.hypot(px(l0, s.sh).x - px(l0, s.hip).x, px(l0, s.sh).y - px(l0, s.hip).y);
-        if (cap.buf.length > 5 && jit / trunk > cc.maxJitterTrunkFrac) { cap.buf = [cap.buf[cap.buf.length - 1]]; if (pb) pb.style.width = '0'; return; }
-        if (pb) pb.style.width = Math.min(100, 100 * span / cc.holdS) + '%';
-        if (span < cc.holdS) return;
-        const frames = cap.buf.map(b => b.f); cap.buf = [];
-        const W = engine.video.videoWidth, H = engine.video.videoHeight;
-        if (S.step === 'calStand') {
-            const d = A.describePose(A.medianPose(frames, W, H), side, 1, null, CONFIG.signal.minVisibility);
-            if (d.kneeFlex > cc.standMaxKneeFlexDeg || Math.abs(d.trunkIncl) > cc.standMaxTrunkInclDeg) { setStep('calStand', 'Stand taller (knees straight, trunk upright) and try again.'); S.cap = { buf: [] }; return; }
-            S.standFrames = frames; beep(900, 120); S.cap = { buf: [] }; setStep('calSeat');
-        } else {
-            const calib = A.buildCalibration(S.standFrames, frames, W, H, S.participant.heightCm, CONFIG);
-            const issues = A.checkCalibration(calib, CONFIG);
-            if (calib.seat.kneeFlex < cc.seatMinKneeFlexDeg) issues.push('Seated knee angle is too open (' + calib.seat.kneeFlex.toFixed(0) + '°): sit properly on the chair.');
-            if (issues.length) { S.cap = { buf: [] }; setStep('calStand', issues.join(' ') + ' Redo calibration.'); return; }
-            S.calib = calib; S.side = calib.side; engine.side = calib.side; beep(1200, 200);
-            const y = p => calib.seat.hipY - p * (calib.seat.hipY - calib.stand.hipY);
-            engine.overlay.lines = [{ y: y(0), label: 'SEATED 0%', color: '#ffd700' }, { y: y(CONFIG.protocol.halfwayProgress), label: '50% (half-way)', color: '#7fd4ff' }, { y: y(1), label: 'STAND 100%', color: '#4cdf7c' }];
-            setStep('ready');
-        }
+        if (!chainOK(f, side)) return;
+        const hy = f.img[s.hip * 4 + 1] * engine.video.videoHeight;
+        if (S.liveHipMin === undefined || hy < S.liveHipMin) S.liveHipMin = hy;   // highest (standing)
+        if (S.liveHipMax === undefined || hy > S.liveHipMax) S.liveHipMax = hy;   // lowest (seated)
     }
 
     function liveMetrics(f) {
-        const c = S.calib; if (!f || !c) return null;
-        const s = A.SIDE[c.side], P = li => px(f, li);
-        const a = A.poseAngles(P(s.sh), P(s.hip), P(s.kn), P(s.an), P(s.toe), c.facing);
-        const p = (c.seat.hipY - P(s.hip).y) / (c.seat.hipY - c.stand.hipY);
+        if (!f) return null;
+        // Use the finalised calib if present; otherwise the running min/max from this test.
+        const c = S.calib;
+        const side = c ? c.side : (S.side || sideOf(f));
+        const facing = c ? c.facing : 1;
+        const s = A.SIDE[side], P = li => px(f, li);
+        const a = A.poseAngles(P(s.sh), P(s.hip), P(s.kn), P(s.an), P(s.toe), facing);
+        let seatY, standY;
+        if (c) { seatY = c.seat.hipY; standY = c.stand.hipY; }
+        else { seatY = S.liveHipMax; standY = S.liveHipMin; }
+        if (!(Number.isFinite(seatY) && Number.isFinite(standY) && seatY - standY > 1)) return { a, p: S.pEma === null ? 0 : S.pEma };
+        const p = (seatY - P(s.hip).y) / (seatY - standY);
         S.pEma = S.pEma === null ? p : CONFIG.live.emaAlpha * p + (1 - CONFIG.live.emaAlpha) * S.pEma;
         return { a, p: S.pEma };
     }
 
     function onFrame(f, tMs) {
         const step = S.step;
-        if (f && ['position', 'calStand', 'calSeat', 'ready', 'countdown'].includes(step)) { S.ring.push(f); while (S.ring.length && S.ring[0].tMs < tMs - 2500) S.ring.shift(); }
+        if (f && ['position', 'countdown'].includes(step)) { S.ring.push(f); while (S.ring.length && S.ring[0].tMs < tMs - 2500) S.ring.shift(); }
         if (step === 'position') updateReadiness(f);
-        else if (step === 'calStand' || step === 'calSeat') feedCapture(f, tMs);
-        const lm = (step === 'ready' || step === 'countdown' || step === 'test' || step === 'finishing') ? liveMetrics(f) : null;
+        if (step === 'test' || step === 'finishing') updateLiveCalib(f);
+        const lm = (step === 'countdown' || step === 'test' || step === 'finishing') ? liveMetrics(f) : null;
         if (lm) {
             engine.overlay.angles = { knee: lm.a.kneeFlex, hip: lm.a.hipFlex, trunk: lm.a.trunkIncl };
             if (step === 'test') {
@@ -377,6 +379,7 @@
         S.t0 = performance.now();
         const lo = S.t0 - CONFIG.protocol.preRollS * 1000;
         S.tFrames = S.ring.filter(f => f.tMs >= lo); S.attempted = 0; S.liveCount = 0; S.liveState = 'seated';
+        S.liveHipMin = undefined; S.liveHipMax = undefined; S.pEma = null; S.calib = null;
         setStep('test'); setTimeout(() => { const o = $('#ov'); if (o && S.step === 'test') { o.classList.remove('big'); o.textContent = ''; } }, 600);
         const ht = $('#ht'); if (ht) ht.classList.add('counting');
         S.timer = setInterval(() => {
@@ -392,13 +395,25 @@
         const elapsed = Math.min((performance.now() - S.t0) / 1000, T + CONFIG.protocol.tailS);
         stopTimers(); S.manualStop = !!manual; setStep('analyzing');
         const W = engine.video.videoWidth, H = engine.video.videoHeight;
-        const rec = { W, H, t0Ms: S.t0, attempted: S.attempted, frames: S.tFrames.slice().sort((a, b) => a.tMs - b.tMs) };
+        const sortedFrames = S.tFrames.slice().sort((a, b) => a.tMs - b.tMs);
+        const rec = { W, H, t0Ms: S.t0, attempted: S.attempted, frames: sortedFrames };
         const meta = { sessionId: uuid(), timestampUtc: new Date().toISOString(), utcOffsetMin: -new Date().getTimezoneOffset(), poseModel: engine.model, delegate: engine.delegate,
             cameraFacing: S.participant.cam, userAgent: navigator.userAgent, elapsedS: manual ? elapsed : T, manualStop: manual, liveCount: S.liveCount };
         engine.stop();
         setTimeout(() => {
+            // Option A: build calibration automatically from the recorded motion (no hold-still step).
+            const calib = autoCalibrate(sortedFrames, W, H);
+            if (!calib) {
+                document.body.classList.remove('live');
+                app.innerHTML = '<div class="screen center"><div class="panel brackets"><h2>Not enough movement</h2>'
+                    + '<p>The app could not tell sitting from standing — it needs at least one clear stand-up during the 30 seconds, with the whole body in view from the side.</p>'
+                    + '<p>Make sure the camera is side-on and the full body (head to feet) stays in frame, then try again.</p>'
+                    + '<button class="btn btn-primary" id="r">Try again</button></div></div>';
+                $('#r').onclick = session; return;
+            }
+            S.calib = calib;
             let res;
-            try { res = A.analyzeSession({ recording: rec, calib: S.calib, participant: S.participant, meta, cfg: CONFIG, schema: SCHEMA }); }
+            try { res = A.analyzeSession({ recording: rec, calib, participant: S.participant, meta, cfg: CONFIG, schema: SCHEMA }); }
             catch (e) { console.error(e); res = { error: 'Analysis failed: ' + e.message }; }
             if (res.error) { document.body.classList.remove('live'); app.innerHTML = '<div class="screen center"><div class="panel brackets"><h2>Analysis problem</h2><p>' + esc(res.error) + '</p><button class="btn btn-primary" id="r">Try again</button></div></div>'; $('#r').onclick = session; return; }
             S.result = res; S.rec = rec;
