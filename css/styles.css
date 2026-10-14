@@ -46,8 +46,9 @@ body {
 h1, h2, h3, h4, .logo, .btn, .big-number, .hud-time, .hud-reps, .metric .v, th {
     font-family: 'Orbitron', 'Rajdhani', sans-serif;
 }
-h2 { font-size: 1.35rem; text-transform: uppercase; letter-spacing: 2px; color: var(--blue); text-shadow: var(--blue-glow); margin-bottom: 10px; }
-h3 { font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; color: var(--orange); margin: 20px 0 10px; }
+h2 { font-size: clamp(1.15rem, 5vw, 1.35rem); text-transform: uppercase; letter-spacing: 2px; color: var(--blue); text-shadow: var(--blue-glow); margin-bottom: 10px; }
+h3 { font-size: clamp(.9rem, 4vw, 1rem); text-transform: uppercase; letter-spacing: 1.5px; color: var(--orange); margin: 0 0 10px; }
+h3:not(:first-child) { margin-top: 6px; }
 h3::before { content: '▍ '; color: var(--orange); }
 p { color: var(--text-dim); font-size: .98rem; }
 a { color: var(--blue); }
@@ -99,7 +100,7 @@ body.live .tron-bg { display: none; }
 }
 
 /* ----------------------------------------------------------------- panels */
-.screen { display: flex; flex-direction: column; gap: 16px; padding: 8px 0 48px; animation: fade .3s ease; }
+.screen { display: flex; flex-direction: column; gap: 14px; padding: 8px 0 48px; animation: fade .3s ease; }
 .center { align-items: center; text-align: center; }
 @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
 
@@ -108,10 +109,11 @@ body.live .tron-bg { display: none; }
     background: var(--panel);
     border: 1px solid var(--line);
     clip-path: var(--clip);
-    padding: 18px;
+    padding: 16px;
     box-shadow: inset 0 0 24px rgba(0, 212, 255, 0.06), 0 0 18px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(3px);
 }
+@media (max-width: 380px) { .panel { padding: 13px; } #app { padding: 12px; } }
 /* HUD corner brackets */
 .brackets::before, .brackets::after {
     content: ''; position: absolute; width: 18px; height: 18px; pointer-events: none;
@@ -127,23 +129,24 @@ body.live .tron-bg { display: none; }
 
 /* ----------------------------------------------------------------- logo / header */
 .logo {
-    font-size: 2.6rem; font-weight: 900; letter-spacing: 3px; line-height: 1;
-    color: #fff; text-shadow: var(--blue-glow); margin-top: 14px;
+    font-size: clamp(2rem, 9vw, 2.6rem); font-weight: 900; letter-spacing: 3px; line-height: 1;
+    color: #fff; text-shadow: var(--blue-glow); margin-top: 8px;
 }
 .logo .slash { color: var(--orange); text-shadow: var(--orange-glow); }
-.subtitle { text-transform: uppercase; letter-spacing: 3px; font-size: .82rem; color: var(--blue); margin-top: 2px; }
+.subtitle { text-transform: uppercase; letter-spacing: 2px; font-size: clamp(.7rem, 3vw, .82rem); color: var(--blue); margin-top: 4px; }
 
 /* ----------------------------------------------------------------- buttons */
 .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    min-height: 50px; padding: 12px 22px;
+    min-height: 50px; padding: 12px 18px; max-width: 100%;
     background: transparent; color: var(--blue);
     border: 1.5px solid var(--blue);
     clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-    font-size: .95rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    font-size: clamp(.82rem, 3.2vw, .95rem); font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
     cursor: pointer; touch-action: manipulation;
     transition: box-shadow .15s, background .15s, transform .08s, color .15s;
     text-shadow: 0 0 6px rgba(0, 212, 255, 0.4);
+    overflow-wrap: anywhere; text-align: center;
 }
 .btn:hover { box-shadow: var(--blue-glow), inset 0 0 14px rgba(0, 212, 255, 0.18); background: rgba(0, 212, 255, 0.08); }
 .btn:active { transform: scale(.97); }
@@ -196,14 +199,17 @@ body.live .tron-bg { display: none; }
 .err { color: var(--red); font-size: .85rem; min-height: 1.2em; }
 
 /* ----------------------------------------------------------------- language selector + video */
-.lang-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+/* Auto-fit columns: 3-up on wide screens, stacks to 1-up on narrow phones so no label is clipped. */
+.lang-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .lang-btn {
-    min-height: 64px; flex-direction: column; gap: 2px; line-height: 1.1; font-size: .9rem;
+    min-height: 60px; flex-direction: column; gap: 2px; line-height: 1.15;
+    font-size: clamp(.78rem, 3.4vw, .95rem); letter-spacing: 1px;
+    padding: 10px 8px; white-space: normal; overflow-wrap: anywhere; text-align: center;
 }
-.lang-btn .sub { font-family: 'Rajdhani', sans-serif; font-size: .78rem; letter-spacing: 1px; color: var(--text-dim); }
+.lang-btn .sub { font-family: 'Rajdhani', sans-serif; font-size: .8rem; letter-spacing: .5px; color: var(--text-dim); }
 .lang-btn.active { color: var(--orange); border-color: var(--orange); box-shadow: var(--orange-glow); }
-.lang-switch { display: flex; gap: 8px; margin-top: 10px; }
-.lang-switch .btn { flex: 1; min-height: 40px; font-size: .74rem; }
+.lang-switch { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-top: 10px; width: 100%; }
+.lang-switch .btn { min-height: 42px; font-size: clamp(.68rem, 3vw, .78rem); letter-spacing: 1px; padding: 8px 6px; white-space: normal; }
 
 .video-panel { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .video-frame {
@@ -217,7 +223,7 @@ body.live .tron-bg { display: none; }
 /* ----------------------------------------------------------------- live session */
 .live-session { display: flex; flex-direction: column; height: 100dvh; background: #000; }
 .live-video-wrap { position: relative; flex: 1; overflow: hidden; background: #000; }
-.live-video-wrap video, .live-video-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.live-video-wrap video, .live-video-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .live-video-wrap.mirror video, .live-video-wrap.mirror canvas { transform: scaleX(-1); }
 .live-video-wrap canvas { pointer-events: none; }
 /* corner brackets on the video */
@@ -244,8 +250,10 @@ body.live .tron-bg { display: none; }
 .progress > div { height: 100%; width: 0; background: var(--blue); box-shadow: var(--blue-glow); transition: width .1s; }
 .angle-panel { position: absolute; left: 10px; bottom: 10px; background: rgba(5,10,22,.65); border: 1px solid var(--line); padding: 6px 10px; font-family: 'Rajdhani', monospace; font-size: .78rem; line-height: 1.5; z-index: 5; pointer-events: none; white-space: pre-line; color: var(--blue); }
 
-.controls { display: flex; gap: 10px; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); background: var(--bg0); border-top: 1px solid var(--line); align-items: center; }
-.controls .btn { flex: 1; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--bg0); border-top: 1px solid var(--line); align-items: center; justify-content: center; }
+.controls .btn { flex: 1 1 auto; min-width: 72px; min-height: 44px; padding: 8px 10px; font-size: clamp(.66rem, 2.8vw, .8rem); letter-spacing: 1px; }
+/* the primary action (Calibrate / Start / Complete) gets its own full-width row so it is never clipped */
+.controls .btn-primary { flex: 1 1 100%; order: 99; min-height: 50px; }
 
 /* ----------------------------------------------------------------- results */
 .big-score { text-align: center; padding: 10px 0; }
@@ -281,8 +289,13 @@ summary { cursor: pointer; font-family: 'Orbitron', sans-serif; font-weight: 700
 .hist { text-align: left; display: flex; flex-direction: column; gap: 8px; }
 .hist .card { background: var(--panel); border: 1px solid var(--line); padding: 12px; font-size: .86rem; clip-path: polygon(8px 0,100% 0,100% 100%,0 100%,0 8px); }
 
+/* collapsible privacy/history on the entry screen (declutter) */
+.more-info { background: transparent; border: 1px dashed var(--line); padding: 8px 12px; }
+.more-info summary { font-size: .76rem; color: var(--text-dim); }
+.more-info p { font-size: .82rem; }
+
 /* persistent known-limits footer */
-.footer-limits { margin-top: 24px; font-size: .74rem; color: var(--text-dim); text-align: center; border-top: 1px solid var(--line); padding-top: 12px; letter-spacing: .3px; }
+.footer-limits { margin-top: 20px; font-size: .72rem; color: var(--text-dim); text-align: center; border-top: 1px solid var(--line); padding-top: 12px; letter-spacing: .3px; }
 
 @media (min-width: 768px) {
     #app { max-width: 760px; }

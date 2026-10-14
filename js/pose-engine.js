@@ -44,10 +44,16 @@ class PoseEngine {
     async startCamera(video, canvas, facing) {
         this.video = video; this.canvas = canvas; this.ctx = canvas.getContext('2d');
         const portrait = window.innerHeight >= window.innerWidth;
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: facing, width: { ideal: portrait ? 720 : 1280 }, height: { ideal: portrait ? 1280 : 720 }, frameRate: { ideal: 30 } },
-            audio: false
-        });
+        const videoConstraints = { facingMode: facing, width: { ideal: portrait ? 720 : 1280 }, height: { ideal: portrait ? 1280 : 720 }, frameRate: { ideal: 30 } };
+        if (portrait) videoConstraints.aspectRatio = { ideal: 9 / 16 };   // ask the camera for a portrait stream
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+        } catch (e) {
+            // Some devices reject the aspectRatio hint — retry without it rather than failing.
+            delete videoConstraints.aspectRatio;
+            stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+        }
         this.stream = stream;
         video.srcObject = stream;
         await new Promise(res => { video.onloadedmetadata = () => { video.play(); res(); }; });

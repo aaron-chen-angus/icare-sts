@@ -114,8 +114,8 @@
                 <div class="fg"><label>Pose model</label><select id="model"><option value="full">Full (recommended)</option><option value="heavy">Heavy (most accurate)</option><option value="lite">Lite (fastest)</option></select></div>
               </div>
               <div class="fg"><label>Notes (no identifying information)</label><textarea id="notes" rows="2">${esc(p.notes)}</textarea></div>
-              <label class="check"><input type="checkbox" id="c1" required> Operator will stand next to the participant for safety; participant has no condition making the test unsafe.</label>
-              <label class="check"><input type="checkbox" id="c2" required> Participant instructed: sit mid-chair, feet flat, <b>arms crossed on chest</b>, stand fully then sit, repeatedly for 30 s. If arms are used to stand, the test is invalid.</label>
+              <label class="check"><input type="checkbox" id="c1" required> Operator stands by for safety; participant is fit to do the test.</label>
+              <label class="check"><input type="checkbox" id="c2" required> Participant briefed: feet flat, <b>arms crossed on chest</b> (using arms invalidates the test).</label>
               ${sheetsOn ? '<label class="check"><input type="checkbox" id="c3"> Participant consents to upload of the derived numeric results to the study Google Sheet.</label>' : '<div class="note info" style="margin-top:6px">Cloud upload not configured — results are saved locally and can be downloaded.</div>'}
               <div class="err" id="err"></div>
             </form>
@@ -123,7 +123,7 @@
 
           <div class="panel brackets">
             <h3>Watch the demo</h3>
-            <p style="margin-bottom:10px">Choose a language to play the demonstration, then press PROCEED.</p>
+            <p style="margin-bottom:10px">Pick a language, then press PROCEED.</p>
             <div class="lang-grid" id="langs">
               ${Object.keys(VIDEOS).map(k => `<button type="button" class="btn lang-btn" data-lang="${k}">${VIDEOS[k].label}<span class="sub">${VIDEOS[k].sub}</span></button>`).join('')}
             </div>
@@ -131,9 +131,13 @@
           </div>
 
           <button class="btn btn-primary btn-large" id="proceed" style="display:none" disabled>PROCEED ▸</button>
-          <div class="row"><button class="btn btn-secondary btn-small" id="hist">History &amp; unsent data</button></div>
-          <div class="note"><b>Privacy.</b> Video never leaves the device and is never stored. Pose landmarks are processed in the browser; only numeric results are saved locally.</div>
-          <p class="status">v${CONFIG.app.version} · analysis ${CONFIG.app.analysisVersion} · schema ${CONFIG.app.schemaVersion}</p>
+
+          <details class="more-info">
+            <summary>Privacy &amp; history</summary>
+            <p style="margin:8px 0"><b>Privacy.</b> Video never leaves the device and is never stored. Pose landmarks are processed in the browser; only numeric results are saved locally.</p>
+            <div class="row"><button class="btn btn-secondary btn-small" id="hist">History &amp; unsent data</button></div>
+            <p class="status" style="margin-top:8px">v${CONFIG.app.version} · analysis ${CONFIG.app.analysisVersion} · schema ${CONFIG.app.schemaVersion}</p>
+          </details>
           ${footer()}
         </div>`;
 
@@ -236,14 +240,14 @@
         S.step = step;
         const ov = $('#ov'), ctl = $('#ctl'); if (!ov) return;
         ov.classList.remove('big');
-        const back = '<button class="btn btn-secondary btn-small" id="bk" style="flex:.5">Exit</button>';
+        const back = '<button class="btn btn-secondary btn-small" id="bk">Exit</button>';
         const wireBack = () => { const b = $('#bk'); if (b) b.onclick = () => { stopAll(); entry(); }; };
         if (step === 'position') {
             ov.textContent = msg || 'Place the camera 2–3 m away at hip height, SIDE-ON to the chair (perpendicular), chair against a wall.\nWhole body, head to feet, must be in view.';
             ctl.innerHTML = back +
-                '<button class="btn btn-secondary btn-small" id="cm" style="flex:.6">Flip cam</button>' +
-                '<button class="btn btn-secondary btn-small" id="lb" style="flex:.6">Labels</button>' +
-                '<button class="btn btn-secondary btn-small" id="al" style="flex:.6">All pts</button>' +
+                '<button class="btn btn-secondary btn-small" id="cm">Flip cam</button>' +
+                '<button class="btn btn-secondary btn-small" id="lb">Labels</button>' +
+                '<button class="btn btn-secondary btn-small" id="al">All pts</button>' +
                 '<button class="btn btn-primary" id="nx" disabled>Calibrate standing</button>';
             wireBack();
             $('#cm').onclick = flipCamera;
@@ -260,7 +264,7 @@
             const c = S.calib;
             ov.innerHTML = '<b class="good">CALIBRATED</b>\nScale ' + (c.scale * 1000).toFixed(3) + ' mm/px · hip rise ' + c.hipRiseM.toFixed(2) + ' m · near side ' + c.side +
                 '\nParticipant stays seated, arms crossed.\nDo not move the camera or chair from now on.';
-            ctl.innerHTML = back + '<button class="btn btn-secondary btn-small" id="rc" style="flex:.7">Recalibrate</button><button class="btn btn-primary" id="st">Start 30-s test</button>';
+            ctl.innerHTML = back + '<button class="btn btn-secondary btn-small" id="rc">Recalibrate</button><button class="btn btn-primary" id="st">Start 30-s test</button>';
             wireBack(); $('#rc').onclick = () => { S.cap = { buf: [] }; engine.overlay.lines = []; setStep('calStand'); };
             $('#st').onclick = () => { beep(1, 1); countdown(); };
         } else if (step === 'countdown') {
