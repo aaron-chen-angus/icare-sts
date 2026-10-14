@@ -16,7 +16,7 @@ const CONFIG = {
 
     // Google Sheets (Apps Script web app). Leave empty to disable upload (local export only).
     sheets: {
-        webhookUrl: '',
+        webhookUrl: 'https://script.google.com/macros/s/AKfycbxi5iaIrXsx4X2EOUFOV3rwFc5QWvLmb_1CINIBSqOCsq9WwW1vINV3-8BSjgChvYQS/exec',
         uploadFrames: false   // true = also upload the analysed time series (~900 rows/test) to a "Frames" sheet
     },
 
