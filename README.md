@@ -6,6 +6,7 @@
 |---|---|
 | **Live app** | https://aaron-chen-angus.github.io/icare-sts/ |
 | **Source repository** | https://github.com/aaron-chen-angus/icare-sts |
+| **Results Google Sheet** | https://docs.google.com/spreadsheets/d/1-NfypqHSYlzdXzHvD3Fnb6Cqlxhb0Yd-XO1I8cTW6ng/edit?usp=sharing |
 | **App / analysis / schema version** | 1.0.0 / 1.0.0 / 1.0 |
 | **Test protocol** | CDC STEADI 30-Second Chair Stand (Jones, Rikli & Beam, 1999) |
 | **Pose estimation** | Google MediaPipe Pose Landmarker (BlazePose GHUM), on-device |
@@ -88,6 +89,9 @@ automatically. Hard-refresh on the device to bypass cached CSS/JS.
 Cloud upload is **off by default** — results stay on the device and can be downloaded as a ZIP.
 Enabling it lets each completed test post its summary and per-rep rows to a Google Sheet you
 control. Video and raw landmarks are **never** uploaded; only the numeric results are.
+
+**Live results sheet for this deployment:**
+<https://docs.google.com/spreadsheets/d/1-NfypqHSYlzdXzHvD3Fnb6Cqlxhb0Yd-XO1I8cTW6ng/edit?usp=sharing>
 
 ### 3.1 What gets sent
 
